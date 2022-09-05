@@ -25,20 +25,29 @@ class ProductTemplate(models.Model):
             template._update_fix_price(vals)
         return res
 
+    use_variant_lst_price = fields.Boolean(
+        'Use Template Price',
+        help="Don't use template price to calculate variant prices", 
+        default=True,
+    )
+
 
 class ProductProduct(models.Model):
     _inherit = "product.product"
 
     @api.depends("fix_price")
     def _compute_lst_price(self):
-        uom_model = self.env["uom.uom"]
-        for product in self:
-            price = product.fix_price or product.list_price
-            if "uom" in self.env.context:
-                price = product.uom_id._compute_price(
-                    price, uom_model.browse(self.env.context["uom"])
-                )
-            product.lst_price = price
+        if product.product_tmpl_id.use_variant_lst_price:
+            uom_model = self.env["uom.uom"]
+            for product in self:
+                price = product.fix_price or product.list_price
+                if "uom" in self.env.context:
+                    price = product.uom_id._compute_price(
+                        price, uom_model.browse(self.env.context["uom"])
+                    )
+                product.lst_price = price
+        else:
+            self._compute_product_lst_price()
 
     def _compute_list_price(self):
         uom_model = self.env["uom.uom"]
@@ -51,32 +60,37 @@ class ProductProduct(models.Model):
             product.list_price = price
 
     def _inverse_product_lst_price(self):
-        uom_model = self.env["uom.uom"]
-        for product in self:
-            vals = {}
-            if "uom" in self.env.context:
-                vals["fix_price"] = product.uom_id._compute_price(
-                    product.lst_price, uom_model.browse(self.env.context["uom"])
-                )
-            else:
-                vals["fix_price"] = product.lst_price
-            if product.product_variant_count == 1:
-                product.product_tmpl_id.list_price = vals["fix_price"]
-            else:
-                fix_prices = product.product_tmpl_id.mapped(
-                    "product_variant_ids.fix_price"
-                )
-                # for consistency with price shown in the shop
-                product.product_tmpl_id.with_context(
-                    skip_update_fix_price=True
-                ).list_price = min(fix_prices)
-            product.write(vals)
+        if product.product_tmpl_id.use_variant_lst_price:
+            uom_model = self.env["uom.uom"]
+            for product in self:
+                vals = {}
+                if "uom" in self.env.context:
+                    vals["fix_price"] = product.uom_id._compute_price(
+                        product.lst_price, uom_model.browse(self.env.context["uom"])
+                    )
+                else:
+                    vals["fix_price"] = product.lst_price
+                if product.product_variant_count == 1:
+                    product.product_tmpl_id.list_price = vals["fix_price"]
+                else:
+                    fix_prices = product.product_tmpl_id.mapped(
+                        "product_variant_ids.fix_price"
+                    )
+                    # for consistency with price shown in the shop
+                    product.product_tmpl_id.with_context(
+                        skip_update_fix_price=True
+                    ).list_price = min(fix_prices)
+                product.write(vals)
+        else:
+            self._set_product_lst_price()
 
     lst_price = fields.Float(
         compute="_compute_lst_price",
         inverse="_inverse_product_lst_price",
     )
     list_price = fields.Float(
+        'Variant Sales Price',
         compute="_compute_list_price",
+        help="The sale price is managed per variant. You can disable this option in the template's settings.",
     )
     fix_price = fields.Float(string="Fix Price")
