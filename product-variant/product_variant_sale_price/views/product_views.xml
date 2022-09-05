@@ -5,10 +5,13 @@
         <field name="model">product.template</field>
         <field name="inherit_id" ref="product.product_template_form_view" />
         <field name="arch" type="xml">
+            <xpath expr="//field[@name='list_price']" position="before">
+		    <field name="use_variant_lst_price"/>
+            </xpath>
             <xpath expr="//field[@name='list_price']" position="attributes">
-                <attribute name="attrs">{'invisible': [
-                    ('product_variant_count', '>', 1)
-                    ]}</attribute>
+		    <attribute name="attrs">
+		        {'invisible': [('product_variant_count', '>', 1),('use_variant_lst_price','!=','False')]}
+		    </attribute>
             </xpath>
         </field>
     </record>
@@ -17,9 +20,10 @@
         <field name="inherit_id" ref="product.product_normal_form_view" />
         <field name="arch" type="xml">
             <xpath expr="//field[@name='uom_id']" position="after">
+		<field name="use_variant_lst_price"/>
                 <field
                     name="fix_price"
-                    attrs="{'invisible': [('product_variant_count', '=', 1)]}"
+                    attrs="{'invisible': ['|',('product_variant_count', '=', 1),('use_variant_lst_price','==','False')]}"
                 />
             </xpath>
         </field>
@@ -29,9 +33,10 @@
         <field name="inherit_id" ref="product.product_variant_easy_edit_view" />
         <field name="arch" type="xml">
             <xpath expr="//field[@name='standard_price']" position="before">
+		<field name="use_variant_lst_price"/>
                 <field
                     name="fix_price"
-                    attrs="{'invisible': [('product_variant_count', '=', 1)]}"
+                    attrs="{'invisible': ['|',('product_variant_count', '=', 1),('use_variant_lst_price','==','False')]}"
                     widget='monetary'
                     options="{'currency_field': 'currency_id', 'field_digits': True}"
                 />
